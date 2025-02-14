@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 const URL = "https://hub.ucd.ie/usis/W_HU_MENU.P_PUBLISH?p_tag=GYMBOOK";
-const REFRESH_INTERVAL = 1000; // Refresh every 1 second
+const REFRESH_INTERVAL = 1000; 
 
 // Handle gym booking request
 app.post("/book", async (req, res) => {
