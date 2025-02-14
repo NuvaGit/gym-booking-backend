@@ -21,9 +21,15 @@ try {
     console.log("🔄 Launching Puppeteer...");
     const browser = await puppeteer.launch({
         headless: true,
-        executablePath: "/usr/bin/google-chrome-stable",
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+        ],
     });
+    
+    
     
 
     const page = await browser.newPage();
