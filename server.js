@@ -1,5 +1,5 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const { chromium, firefox, webkit } = require("playwright");
 const cors = require("cors");
 
 const app = express();
@@ -15,7 +15,7 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // Enable preflight requests for all routes
 app.use(express.json());
 
-// --- Optional: Test GET route to verify server is running ---
+// --- Test Route to Ensure Server is Running ---
 app.get("/", (req, res) => {
   res.send("Server is running!");
 });
@@ -24,44 +24,41 @@ const URL = "https://hub.ucd.ie/usis/W_HU_MENU.P_PUBLISH?p_tag=GYMBOOK";
 const REFRESH_INTERVAL = 1000;
 
 app.post("/book", async (req, res) => {
-  const { username } = req.body;
+  const { username, browserType = "chromium" } = req.body;
 
   if (!username) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Username is required!" });
+    return res.status(400).json({ success: false, message: "Username is required!" });
   }
 
-  try {
-    console.log("🔄 Launching Puppeteer...");
+  let browser;
 
-    // Updated: Force the executable path to a known working location.
-    const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: '/usr/bin/google-chrome-stable', // <-- Update this path if needed
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-gpu",
-        "--disable-dev-shm-usage",
-      ],
-    });
+  try {
+    console.log(`🔄 Launching Playwright with ${browserType}...`);
+
+    // Launch the browser dynamically based on user input (default: Chromium)
+    if (browserType === "firefox") {
+      browser = await firefox.launch({ headless: true });
+    } else if (browserType === "webkit") {
+      browser = await webkit.launch({ headless: true }); // WebKit for Safari/iPhones
+    } else {
+      browser = await chromium.launch({ headless: true });
+    }
 
     const page = await browser.newPage();
-    await page.goto(URL, { waitUntil: "networkidle2" });
+    await page.goto(URL, { waitUntil: "networkidle" });
 
     console.log("✅ Page loaded, checking for available slots...");
     let bookingConfirmed = false;
 
     while (!bookingConfirmed) {
-      await page.reload({ waitUntil: "networkidle2" });
+      await page.reload({ waitUntil: "networkidle" });
       console.log("🔄 Page refreshed");
 
       // Accept cookies if the popup appears
       try {
-        const cookiesButton = await page.$x("//button[contains(text(), 'Accept')]");
-        if (cookiesButton.length > 0) {
-          await cookiesButton[0].click();
+        const cookiesButton = await page.locator("button:text('Accept')").first();
+        if (await cookiesButton.isVisible()) {
+          await cookiesButton.click();
           console.log("✅ Accepted cookies");
         }
       } catch (err) {
@@ -69,10 +66,10 @@ app.post("/book", async (req, res) => {
       }
 
       // Look for available slots (check for <a> links)
-      const slots = await page.$$("table tr a");
+      const slots = await page.locator("table tr a").all();
       if (slots.length === 0) {
         console.log("❌ No available booking slots. Refreshing...");
-        await new Promise((resolve) => setTimeout(resolve, REFRESH_INTERVAL));
+        await page.waitForTimeout(REFRESH_INTERVAL);
         continue;
       }
 
@@ -84,8 +81,8 @@ app.post("/book", async (req, res) => {
 
       // Enter username
       try {
-        await page.waitForSelector("input[type='text']", { timeout: 5000 });
-        await page.type("input[type='text']", username);
+        await page.locator("input[type='text']").waitFor({ timeout: 5000 });
+        await page.fill("input[type='text']", username);
         console.log(`✅ Entered username: ${username}`);
       } catch (err) {
         console.log("⚠ Username input field not found.");
@@ -94,11 +91,9 @@ app.post("/book", async (req, res) => {
 
       // Click "Proceed with Booking"
       try {
-        const proceedButton = await page.$x(
-          "//input[@type='submit' and contains(@value, 'Proceed')] | //button[contains(text(), 'Proceed')] | //a[contains(text(), 'Proceed')]"
-        );
-        if (proceedButton.length > 0) {
-          await proceedButton[0].click();
+        const proceedButton = page.locator("input[type='submit']:has-text('Proceed'), button:has-text('Proceed'), a:has-text('Proceed')");
+        if (await proceedButton.isVisible()) {
+          await proceedButton.click();
           console.log("✅ Clicked 'Proceed with Booking'");
         }
       } catch (err) {
@@ -110,11 +105,9 @@ app.post("/book", async (req, res) => {
 
       // Click "Confirm Booking"
       try {
-        const confirmButton = await page.$x(
-          "//input[@type='submit' and contains(@value, 'Confirm')] | //button[contains(text(), 'Confirm')] | //a[contains(text(), 'Confirm')]"
-        );
-        if (confirmButton.length > 0) {
-          await confirmButton[0].click();
+        const confirmButton = page.locator("input[type='submit']:has-text('Confirm'), button:has-text('Confirm'), a:has-text('Confirm')");
+        if (await confirmButton.isVisible()) {
+          await confirmButton.click();
           console.log("🎉 Booking confirmed!");
           bookingConfirmed = true;
         }
@@ -127,9 +120,8 @@ app.post("/book", async (req, res) => {
     res.json({ success: true, message: "🎉 Booking Confirmed!" });
   } catch (error) {
     console.error("❌ Error during booking:", error);
-    res
-      .status(500)
-      .json({ success: false, message: `❌ Booking failed: ${error.message}` });
+    if (browser) await browser.close();
+    res.status(500).json({ success: false, message: `❌ Booking failed: ${error.message}` });
   }
 });
 
