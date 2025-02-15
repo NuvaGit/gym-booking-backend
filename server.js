@@ -125,6 +125,6 @@ app.post("/book", async (req, res) => {
   }
 });
 
-// --- Start the server ---
+// 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
