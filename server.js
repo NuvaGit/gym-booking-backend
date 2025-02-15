@@ -34,9 +34,11 @@ app.post("/book", async (req, res) => {
 
   try {
     console.log("🔄 Launching Puppeteer...");
+
+    // Updated: Force the executable path to a known working location.
     const browser = await puppeteer.launch({
       headless: true,
-      executablePath: process.env.CHROME_BIN || "/usr/bin/google-chrome-stable",
+      executablePath: '/usr/bin/google-chrome-stable', // <-- Update this path if needed
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
