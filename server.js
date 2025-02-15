@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 const URL = "https://hub.ucd.ie/usis/W_HU_MENU.P_PUBLISH?p_tag=GYMBOOK";
-const REFRESH_INTERVAL = 1000; 
+const REFRESH_INTERVAL = 1000   ; 
 
 // Handle gym booking request
 app.post("/book", async (req, res) => {
@@ -114,5 +114,5 @@ try {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
