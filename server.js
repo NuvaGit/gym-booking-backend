@@ -3,8 +3,22 @@ const puppeteer = require("puppeteer");
 const cors = require("cors");
 
 const app = express();
-app.use(cors());
+
+// --- CORS Configuration ---
+const corsOptions = {
+  origin: "https://nuvagit.github.io", // Allow only your frontend's origin
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // Enable preflight requests for all routes
 app.use(express.json());
+
+// --- Optional: Test GET route to verify server is running ---
+app.get("/", (req, res) => {
+  res.send("Server is running!");
+});
 
 const URL = "https://hub.ucd.ie/usis/W_HU_MENU.P_PUBLISH?p_tag=GYMBOOK";
 const REFRESH_INTERVAL = 1000;
@@ -13,16 +27,16 @@ app.post("/book", async (req, res) => {
   const { username } = req.body;
 
   if (!username) {
-    return res.status(400).json({ success: false, message: "Username is required!" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Username is required!" });
   }
 
   try {
     console.log("🔄 Launching Puppeteer...");
-
-    // Updated: Specify executablePath using environment variable or fallback to a default path.
     const browser = await puppeteer.launch({
       headless: true,
-      executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome-stable',
+      executablePath: process.env.CHROME_BIN || "/usr/bin/google-chrome-stable",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -35,7 +49,6 @@ app.post("/book", async (req, res) => {
     await page.goto(URL, { waitUntil: "networkidle2" });
 
     console.log("✅ Page loaded, checking for available slots...");
-
     let bookingConfirmed = false;
 
     while (!bookingConfirmed) {
@@ -79,7 +92,9 @@ app.post("/book", async (req, res) => {
 
       // Click "Proceed with Booking"
       try {
-        const proceedButton = await page.$x("//input[@type='submit' and contains(@value, 'Proceed')] | //button[contains(text(), 'Proceed')] | //a[contains(text(), 'Proceed')]");
+        const proceedButton = await page.$x(
+          "//input[@type='submit' and contains(@value, 'Proceed')] | //button[contains(text(), 'Proceed')] | //a[contains(text(), 'Proceed')]"
+        );
         if (proceedButton.length > 0) {
           await proceedButton[0].click();
           console.log("✅ Clicked 'Proceed with Booking'");
@@ -93,7 +108,9 @@ app.post("/book", async (req, res) => {
 
       // Click "Confirm Booking"
       try {
-        const confirmButton = await page.$x("//input[@type='submit' and contains(@value, 'Confirm')] | //button[contains(text(), 'Confirm')] | //a[contains(text(), 'Confirm')]");
+        const confirmButton = await page.$x(
+          "//input[@type='submit' and contains(@value, 'Confirm')] | //button[contains(text(), 'Confirm')] | //a[contains(text(), 'Confirm')]"
+        );
         if (confirmButton.length > 0) {
           await confirmButton[0].click();
           console.log("🎉 Booking confirmed!");
@@ -107,11 +124,13 @@ app.post("/book", async (req, res) => {
     await browser.close();
     res.json({ success: true, message: "🎉 Booking Confirmed!" });
   } catch (error) {
-    console.error("❌ Error:", error);
-    res.status(500).json({ success: false, message: "❌ Booking failed." });
+    console.error("❌ Error during booking:", error);
+    res
+      .status(500)
+      .json({ success: false, message: `❌ Booking failed: ${error.message}` });
   }
 });
 
-// Start server
+// --- Start the server ---
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
